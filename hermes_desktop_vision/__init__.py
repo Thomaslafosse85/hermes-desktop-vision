@@ -33,11 +33,15 @@ __license__ = "MIT"
 from .desktop import DesktopVision, ScreenText, DetectedObject
 from .browser import BrowserControl
 from .system import SystemControl
+from .safety import SafetyGuard, DANGEROUS_ACTIONS, PROTECTED_PROCESSES
 
 __all__ = [
     "DesktopVision",
     "BrowserControl",
     "SystemControl",
+    "SafetyGuard",
     "ScreenText",
     "DetectedObject",
+    "DANGEROUS_ACTIONS",
+    "PROTECTED_PROCESSES",
 ]

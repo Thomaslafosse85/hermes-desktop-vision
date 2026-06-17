@@ -326,6 +326,39 @@ sys.lock()  # Win+L
 
 ---
 
+## 🛡️ Safety First
+
+**All destructive actions are BLOCKED by default.** Your agent can't accidentally
+shutdown your PC or kill system processes.
+
+```python
+from hermes_desktop_vision import SystemControl
+
+sys = SystemControl()  # safe_mode=True by default
+
+# These will be BLOCKED and print a warning:
+sys.shutdown()         # 🛡️ BLOCKED: requires guard.allow('shutdown')
+sys.kill_process("explorer.exe")  # 🛡️ BLOCKED: protected process
+sys.lock()             # 🛡️ BLOCKED: requires guard.allow('lock')
+
+# Opt-in for specific actions:
+sys.guard.allow("kill_process")
+sys.kill_process("notepad.exe")  # ✅ Allowed
+
+# Check what's been blocked:
+print(sys.guard.summary())
+# SafetyGuard: safe_mode=ON
+#   Blocked: 3 actions
+#   Allowed: 1 action (kill_process)
+#   Protected processes: 10
+```
+
+**Protected processes** (can NEVER be killed): `explorer.exe`, `svchost.exe`, `lsass.exe`, `hermes`, and more.
+
+**Risk levels:** `SAFE` → `MODERATE` → `DESTRUCTIVE` → `CRITICAL`
+
+---
+
 ## Performance
 
 | Resolution | GPU (RTX 4070) | CPU |

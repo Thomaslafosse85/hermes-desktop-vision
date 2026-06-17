@@ -15,19 +15,34 @@ import os
 import ctypes
 from typing import Optional, List, Tuple
 
+try:
+    from .safety import SafetyGuard
+except ImportError:
+    SafetyGuard = None
+
 
 class SystemControl:
     """
-    Full Windows system control.
+    Full Windows system control with built-in safety.
+
+    Safe by default: destructive actions (shutdown, kill_process, lock)
+    require explicit opt-in via guard.allow('action').
 
     Usage:
         sys = SystemControl()
-        sys.focus_window("Chrome")
-        sys.resize_window(1200, 800)
-        processes = sys.list_processes()
-        sys.set_volume(50)
-        sys.clipboard_copy("Hello")
+        sys.guard.allow("kill_process")  # Opt-in for this session
+        sys.kill_process("notepad.exe")
+        sys.guard.summary()  # Check what's been blocked
     """
+
+    def __init__(self, safe_mode: bool = True):
+        """
+        Initialize system control.
+
+        Args:
+            safe_mode: Enable safety guard (default: True)
+        """
+        self.guard = SafetyGuard(safe_mode=safe_mode) if SafetyGuard else None
 
     # ── Window Management ────────────────────────────────────────────────
 
@@ -261,15 +276,19 @@ class SystemControl:
 
     def kill_process(self, name: str, force: bool = False) -> int:
         """
-        Kill a process by name.
+        Kill a process by name. Requires guard.allow('kill_process').
 
         Args:
             name: Process name (e.g., 'notepad.exe', 'chrome')
             force: Use /F (force kill)
 
         Returns:
-            Number of processes killed
+            Number of processes killed (0 if blocked by safety)
         """
+        # Safety check
+        if self.guard and not self.guard.check("kill_process", process_name=name):
+            return 0
+
         killed = 0
         try:
             import psutil
@@ -396,12 +415,16 @@ class SystemControl:
     # ── System ───────────────────────────────────────────────────────────
 
     def lock(self):
-        """Lock the workstation (Win+L)."""
+        """Lock the workstation (Win+L). Requires guard.allow('lock')."""
+        if self.guard and not self.guard.check("lock"):
+            return
         import pyautogui
         pyautogui.hotkey("win", "l")
 
     def sleep(self):
-        """Put the computer to sleep."""
+        """Put the computer to sleep. Requires guard.allow('sleep')."""
+        if self.guard and not self.guard.check("sleep"):
+            return
         subprocess.run(
             ["rundll32.exe", "powrprof.dll,SetSuspendState", "0,1,0"],
             capture_output=True, timeout=5
@@ -409,23 +432,27 @@ class SystemControl:
 
     def shutdown(self, force: bool = False, timeout: int = 60):
         """
-        Shutdown the computer.
+        Shutdown the computer. Requires guard.allow('shutdown').
 
         Args:
             force: Force close applications
             timeout: Seconds before shutdown
         """
+        if self.guard and not self.guard.check("shutdown"):
+            return
         flag = "/f" if force else ""
         os.system(f"shutdown /s {flag} /t {timeout}")
 
     def restart(self, force: bool = False, timeout: int = 60):
         """
-        Restart the computer.
+        Restart the computer. Requires guard.allow('restart').
 
         Args:
             force: Force close applications
             timeout: Seconds before restart
         """
+        if self.guard and not self.guard.check("restart"):
+            return
         flag = "/f" if force else ""
         os.system(f"shutdown /r {flag} /t {timeout}")
 
