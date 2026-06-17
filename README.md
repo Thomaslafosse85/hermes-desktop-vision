@@ -1,14 +1,28 @@
-# 🐭👀 Hermes Desktop Vision
+# 🐭👀 Hermes Desktop Vision v3.0
 
-> Give your AI agent **eyes on Windows**. Screenshot → OCR → Click.
+> **Full PC control for AI agents** — Desktop, Browser & System.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://python.org)
 [![GPU Recommended](https://img.shields.io/badge/GPU-Recommended-green.svg)]()
-[![Code: 450 lines](https://img.shields.io/badge/Code-450_lines-9cf.svg)](desktop_vision.py)
+[![Code: 1200+ lines](https://img.shields.io/badge/Code-1200+-lines-9cf.svg)](hermes_desktop_vision/)
 
-👉 **Code principal :** [`desktop_vision.py`](desktop_vision.py) (450 lignes, 22 méthodes)  
-👉 **Skill Hermes :** [`SKILL.md`](SKILL.md) — copier dans `~/.hermes/skills/`
+👉 **Package:** `hermes_desktop_vision/` — [`desktop.py`](hermes_desktop_vision/desktop.py) · [`browser.py`](hermes_desktop_vision/browser.py) · [`system.py`](hermes_desktop_vision/system.py)  
+👉 **Skill Hermes:** [`SKILL.md`](SKILL.md) — copier dans `~/.hermes/skills/`
+
+---
+
+## What is this?
+
+AI agents are blind and powerless on Windows. This toolkit gives them:
+
+| Module | Power | Lines |
+|--------|-------|-------|
+| 🖥️ **DesktopVision** | See screen (OCR+YOLO), click, scroll, drag, type | 500 |
+| 🌐 **BrowserControl** | Chrome automation via CDP + vision fallback | 280 |
+| ⚙️ **SystemControl** | Windows, processes, clipboard, volume, notifications | 350 |
+
+**Total: 1200+ lines of pure agent empowerment.**
 
 **AI agents are blind on Windows.** They can't see your desktop, read icon labels, or click buttons. This toolkit gives them vision — enabling autonomous desktop control through EasyOCR + pyautogui.
 
@@ -267,6 +281,47 @@ Any agent that can run Python can use this. For agents without GPU access,
 use the CPU-only install (skip YOLO for speed):
 ```bash
 pip install easyocr pyautogui pillow pygetwindow numpy
+```
+
+---
+
+## Browser Control with Chrome
+
+Full Chrome automation — navigate, fill forms, extract text, screenshots.
+
+```python
+from hermes_desktop_vision import BrowserControl, DesktopVision
+
+desktop = DesktopVision()
+browser = BrowserControl(desktop_vision=desktop)
+
+browser.open("https://github.com")
+browser.fill("Search", "hermes-desktop-vision", press_enter=True)
+text = browser.extract_text()
+browser.screenshot("github.png")
+browser.new_tab("https://news.ycombinator.com")
+```
+
+**Two modes:** CDP (Chrome DevTools Protocol) or DesktopVision fallback.
+
+---
+
+## System Control
+
+Full Windows management — windows, processes, clipboard, volume.
+
+```python
+from hermes_desktop_vision import SystemControl
+
+sys = SystemControl()
+sys.focus_window("Chrome")
+sys.resize_window(1200, 800)
+sys.list_processes(sort_by="memory")
+sys.kill_process("notepad.exe")
+sys.set_volume(50)
+sys.clipboard_copy("Hello from your agent!")
+sys.send_notification("Done!", "Task complete.")
+sys.lock()  # Win+L
 ```
 
 ---
