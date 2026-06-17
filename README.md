@@ -242,6 +242,17 @@ vision.annotate_screenshot("what_i_see.png")
 **No skill configuration needed** — the package installs as a standard Python module.
 Just tell your Hermes agent: "Use DesktopVision to click on X" and it works.
 
+**Even simpler — use it as a Hermes Skill:**
+1. Copy [`SKILL.md`](SKILL.md) into your Hermes skills folder (`~/.hermes/skills/hermes-desktop-vision/`)
+2. The skill auto-installs the package on first use
+3. Hermes now has vision — zero manual config
+
+```bash
+# One-time setup (or let the skill auto-install)
+mkdir -p ~/.hermes/skills/hermes-desktop-vision
+cp SKILL.md ~/.hermes/skills/hermes-desktop-vision/
+```
+
 **Integration with existing Hermes skills:**
 The [`hermes-vision`](https://github.com/NousResearch/hermes-agent) and
 `desktop-control` skills already document the EasyOCR + YOLO pipeline.
