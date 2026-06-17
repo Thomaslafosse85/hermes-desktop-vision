@@ -36,10 +36,24 @@ Screenshot → EasyOCR (reads all text) → pyautogui (clicks the right spot)
 
 ## Installation
 
+### One-command (recommended for Hermes Agent users)
+
+```bash
+pip install git+https://github.com/Thomaslafosse85/hermes-desktop-vision.git
+```
+
+Or with YOLO support (larger install):
+```bash
+pip install "git+https://github.com/Thomaslafosse85/hermes-desktop-vision.git#egg=hermes-desktop-vision[full]"
+```
+
+### Manual install
+
 ```bash
 git clone https://github.com/Thomaslafosse85/hermes-desktop-vision.git
 cd hermes-desktop-vision
-pip install -r requirements.txt
+pip install -e .        # core only
+pip install -e ".[full]" # with YOLO
 ```
 
 **Requirements:**
@@ -204,11 +218,13 @@ if not vision.find_and_click("Settings"):
 ## Integration with AI Agents
 
 ### Hermes Agent
+
+**One-command install** (from your Hermes terminal):
 ```bash
-# Full install (EasyOCR + YOLO)
-pip install -r requirements.txt
+pip install git+https://github.com/Thomaslafosse85/hermes-desktop-vision.git#egg=hermes-desktop-vision[full]
 ```
-Then in your Hermes skill:
+
+Then in any Hermes skill or conversation:
 ```python
 from desktop_vision import DesktopVision
 vision = DesktopVision()
@@ -222,6 +238,14 @@ vision.find_and_click_object("laptop")
 # Debug what the agent sees
 vision.annotate_screenshot("what_i_see.png")
 ```
+
+**No skill configuration needed** — the package installs as a standard Python module.
+Just tell your Hermes agent: "Use DesktopVision to click on X" and it works.
+
+**Integration with existing Hermes skills:**
+The [`hermes-vision`](https://github.com/NousResearch/hermes-agent) and
+`desktop-control` skills already document the EasyOCR + YOLO pipeline.
+This package is the reference implementation.
 
 ### Claude / GPT / Any Agent
 Any agent that can run Python can use this. For agents without GPU access,
