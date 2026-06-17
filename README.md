@@ -391,6 +391,8 @@ sys.shutdown()  # [DRY RUN] Would execute: shutdown (risk=critical)
 **Windows:** `C:\Windows` · `C:\Windows\System32` · `C:\Program Files` · Hermes config  
 **Linux servers:** `/etc` · `/boot` · `/var/lib/docker` · nginx configs · PostgreSQL data · SSH keys
 
+👉 **[Full self-protection guide for Hermes agents →](SELF_PROTECTION.md)**
+
 ### Disabling safety (⚠️ use with caution)
 
 ```python
