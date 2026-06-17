@@ -1,14 +1,14 @@
 ---
 name: hermes-desktop-vision
-description: "Give Hermes eyes on Windows — find and click any UI element via EasyOCR + YOLOv8"
-version: 1.2.0
+description: "Full PC control for Hermes — Desktop (OCR+YOLO), Browser (Chrome CDP), System (Windows), Safety"
+version: 3.2.0
 platforms: [windows]
 python: ">=3.10"
 ---
 
 # Hermes Desktop Vision Skill
 
-Donne à ton agent Hermes des **yeux sur Windows**. Screenshot → OCR/YOLO → Clic.
+Donne à ton agent Hermes le **contrôle total du PC** — voir, cliquer, naviguer, contrôler Windows. Sécurisé par défaut.
 
 ## Installation (automatique au premier usage)
 
@@ -16,40 +16,55 @@ Donne à ton agent Hermes des **yeux sur Windows**. Screenshot → OCR/YOLO → 
 pip install git+https://github.com/Thomaslafosse85/hermes-desktop-vision.git#egg=hermes-desktop-vision[full]
 ```
 
-Si YOLO ne t'intéresse pas (package plus léger) :
-```bash
-pip install git+https://github.com/Thomaslafosse85/hermes-desktop-vision.git
-```
-
 ## Utilisation
 
-Une fois installé, ton agent peut :
+```python
+from hermes_desktop_vision import DesktopVision, BrowserControl, SystemControl
+
+# 🖥️ Desktop — voir l'écran et cliquer
+vision = DesktopVision()
+vision.open_desktop_item("Chrome")
+vision.find_and_click("Submit")
+vision.wait_and_click("Loading...", timeout=30)
+vision.scroll_to_and_click("Settings")
+vision.drag_item("file.txt", "Folder")
+
+# 🌐 Browser — contrôler Chrome
+browser = BrowserControl(desktop_vision=vision)
+browser.open("https://github.com")
+browser.fill("Search", "query", press_enter=True)
+text = browser.extract_text()
+browser.screenshot("page.png")
+browser.new_tab("https://example.com")
+
+# ⚙️ System — contrôler Windows
+sys = SystemControl()
+sys.focus_window("Chrome")
+sys.resize_window(1200, 800)
+sys.list_processes(sort_by="memory")
+sys.clipboard_copy("Hello!")
+sys.set_volume(50)
+sys.send_notification("Done!", "Task complete.")
+```
+
+## 🛡️ Sécurité
+
+Toutes les actions destructrices sont **bloquées par défaut** :
 
 ```python
-from desktop_vision import DesktopVision
-vision = DesktopVision()
+sys.shutdown()                      # 🛡️ CRITICAL — bloqué
+sys.kill_process("explorer.exe")    # 🛡️ Process protégé — bloqué
+sys.lock()                          # 🛡️ CRITICAL — bloqué
 
-# Ouvrir un élément du bureau par son nom
-vision.open_desktop_item("Chrome")
-vision.open_desktop_item("VS Code")
-
-# Trouver et cliquer n'importe quel texte visible à l'écran
-vision.find_and_click("Submit")
-vision.find_and_double_click("Rapport financier")
-
-# Scanner tout le texte visible
-texts = vision.scan_screen()
-for t in texts:
-    print(f"[{t.confidence:.2f}] '{t.text}'")
-
-# Détection d'objets sans texte (YOLO)
-vision.find_and_click_object("cell phone")
-vision.detect_objects(classes=["person", "laptop"])
-
-# Contrôle clavier
-vision.hotkey("ctrl", "c")
-vision.type_text("Hello World")
+# Opt-in explicite requis :
+sys.guard.allow("kill_process")
+sys.kill_process("notepad.exe")     # ✅ OK
 ```
+
+**Protégés en permanence :** shutdown, restart, lock, kill de processus système,
+connexions SSH prod, modification de C:\Windows, System32, /etc.
+
+👉 [Guide complet de sécurité →](https://github.com/Thomaslafosse85/hermes-desktop-vision/blob/master/docs/SELF_PROTECTION.md)
 
 ## Pipelines disponibles
 
@@ -57,49 +72,18 @@ vision.type_text("Hello World")
 |----------|-------|---------|
 | **EasyOCR** | Texte visible (icônes, boutons, menus) | `find_and_click("texte")` |
 | **YOLOv8** | Objets sans texte (80 classes COCO) | `find_and_click_object("laptop")` |
-
-## Exemples concrets
-
-### "Ouvre mon fichier bonjour_thomas.txt"
-
-```python
-vision = DesktopVision()
-vision.show_desktop()          # Win+D
-vision.find_and_double_click("bonjour")  # Trouve le label, double-clic 45px au-dessus
-```
-
-### "Clique sur le bouton Submit dans cette fenêtre"
-
-```python
-vision = DesktopVision()
-vision.find_and_click("Submit")  # Cherche le texte "Submit" et clique dessus
-```
-
-### "Montre-moi ce que tu vois" (debug)
-
-```python
-vision = DesktopVision()
-vision.annotate_screenshot("ce_que_je_vois.png")  # Screenshot avec bounding boxes YOLO
-```
-
-## Prérequis
-
-- Windows 10/11
-- Python 3.10+
-- GPU recommandé (RTX 4070 : ~8s scan 4K, CPU : ~30s)
+| **CDP** | Automatisation Chrome native | `browser.open()`, `browser.fill()` |
 
 ## Dépannage
 
-**"ImportError: No module named 'desktop_vision'"**
-→ Relance `pip install git+https://...` (le package n'est pas installé)
+**"ImportError: hermes_desktop_vision"**
+→ Relance `pip install git+https://...` (package pas installé)
 
-**"YOLO support requires: pip install ultralytics..."**
+**"YOLO support requires..."**
 → Installe la version full : `pip install "...[full]"`
 
-**L'OCR est lent**
-→ Premier lancement = téléchargement du modèle (~400MB). Ensuite c'est rapide.
-→ Vérifie que `gpu=True` (par défaut) et que CUDA est dispo.
+**L'OCR est lent au premier lancement**
+→ Téléchargement du modèle (~400MB). Ensuite c'est rapide.
 
-**L'OCR ne trouve pas mon texte**
-→ Vérifie que le thème n'est pas trop extrême (contraste suffisant)
-→ Baisse `min_confidence` : `vision.find_text("cible", min_confidence=0.1)`
+**Action bloquée par sécurité**
+→ Ajoute `sys.guard.allow('action')` avant d'appeler la méthode.
