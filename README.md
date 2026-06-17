@@ -5,6 +5,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://python.org)
 [![GPU Recommended](https://img.shields.io/badge/GPU-Recommended-green.svg)]()
+[![Code: 450 lines](https://img.shields.io/badge/Code-450_lines-9cf.svg)](desktop_vision.py)
+
+👉 **Code principal :** [`desktop_vision.py`](desktop_vision.py) (450 lignes, 22 méthodes)  
+👉 **Skill Hermes :** [`SKILL.md`](SKILL.md) — copier dans `~/.hermes/skills/`
 
 **AI agents are blind on Windows.** They can't see your desktop, read icon labels, or click buttons. This toolkit gives them vision — enabling autonomous desktop control through EasyOCR + pyautogui.
 
