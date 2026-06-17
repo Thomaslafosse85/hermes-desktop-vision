@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# Screenshots (temporary)
+*.png
+*.jpg
+
+# OS
+.DS_Store
+Thumbs.db
+
+# EasyOCR models (downloaded at runtime)
+.easyocr/
