@@ -329,33 +329,74 @@ sys.lock()  # Win+L
 ## 🛡️ Safety First
 
 **All destructive actions are BLOCKED by default.** Your agent can't accidentally
-shutdown your PC or kill system processes.
+shutdown your PC, kill system processes, or access protected files.
+
+### Protected by default
+
+| Category | What's blocked | How to allow |
+|----------|---------------|--------------|
+| 🔌 **System** | `shutdown()`, `restart()`, `sleep()`, `lock()` | `guard.allow('shutdown')` |
+| 🔫 **Processes** | Killing system processes (`explorer.exe`, `svchost`, `lsass`, `hermes`...) | `guard.allow('kill_process')` — system processes still blocked |
+| 📁 **Local files** | `C:\Windows`, `System32`, Hermes config (`.env`, `config.yaml`) | Explicit approval required |
+| 🌐 **SSH** | Production connections, destructive commands (`rm -rf`, `shutdown`, `docker rm -f`, `DROP TABLE`) | Explicit approval required |
+| 📁 **Server files** | `/etc`, `/boot`, Docker volumes, nginx/PostgreSQL configs, SSH keys | Explicit approval required |
+| 🔊 **User experience** | `set_volume()`, `mute()`, `send_notification()` | `guard.allow('set_volume')` |
 
 ```python
 from hermes_desktop_vision import SystemControl
 
 sys = SystemControl()  # safe_mode=True by default
 
-# These will be BLOCKED and print a warning:
-sys.shutdown()         # 🛡️ BLOCKED: requires guard.allow('shutdown')
-sys.kill_process("explorer.exe")  # 🛡️ BLOCKED: protected process
-sys.lock()             # 🛡️ BLOCKED: requires guard.allow('lock')
+# BLOCKED by default:
+sys.shutdown()                      # 🛡️ CRITICAL — blocked
+sys.kill_process("explorer.exe")    # 🛡️ Protected process — blocked
+sys.kill_process("notepad.exe")     # 🛡️ DESTRUCTIVE — blocked
+sys.lock()                          # 🛡️ CRITICAL — blocked
 
 # Opt-in for specific actions:
 sys.guard.allow("kill_process")
-sys.kill_process("notepad.exe")  # ✅ Allowed
+sys.kill_process("notepad.exe")     # ✅ Allowed
 
-# Check what's been blocked:
+# System processes STAY protected even with opt-in:
+sys.kill_process("explorer.exe")    # 🛡️ STILL BLOCKED
+
+# Check safety status:
 print(sys.guard.summary())
 # SafetyGuard: safe_mode=ON
-#   Blocked: 3 actions
+#   Blocked: 5 actions
 #   Allowed: 1 action (kill_process)
-#   Protected processes: 10
+#   Dry run: OFF
+#   Protected processes: 12
+
+# Dry-run mode: see what would happen without executing
+sys.guard.set_dry_run(True)
+sys.shutdown()  # [DRY RUN] Would execute: shutdown (risk=critical)
 ```
 
-**Protected processes** (can NEVER be killed): `explorer.exe`, `svchost.exe`, `lsass.exe`, `hermes`, and more.
+### Risk levels
 
-**Risk levels:** `SAFE` → `MODERATE` → `DESTRUCTIVE` → `CRITICAL`
+| Level | Examples | Safe mode behavior |
+|-------|----------|-------------------|
+| `SAFE` | `list_processes()`, `get_screen_resolution()` | ✅ Always allowed |
+| `MODERATE` | `set_volume()`, `clipboard_copy()`, `resize_window()` | 🛡️ Blocked (opt-in) |
+| `DESTRUCTIVE` | `kill_process()` (non-system), `close_window()` | 🛡️ Blocked (opt-in) |
+| `CRITICAL` | `shutdown()`, `restart()`, `lock()`, `sleep()` | 🛡️ Blocked (explicit opt-in only) |
+
+### Protected processes (can NEVER be killed)
+
+`explorer.exe` · `svchost.exe` · `csrss.exe` · `winlogon.exe` · `services.exe` · `lsass.exe` · `smss.exe` · `System` · `wininit.exe` · `dwm.exe` · `hermes`
+
+### Protected paths (local + SSH)
+
+**Windows:** `C:\Windows` · `C:\Windows\System32` · `C:\Program Files` · Hermes config  
+**Linux servers:** `/etc` · `/boot` · `/var/lib/docker` · nginx configs · PostgreSQL data · SSH keys
+
+### Disabling safety (⚠️ use with caution)
+
+```python
+sys.guard.allow_all()    # Disable ALL safety checks
+sys = SystemControl(safe_mode=False)  # Start without safety
+```
 
 ---
 
