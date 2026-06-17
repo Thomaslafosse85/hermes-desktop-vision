@@ -26,7 +26,7 @@ Usage:
     sys.clipboard_copy("Hello World")
 """
 
-__version__ = "3.2.0"
+__version__ = "1.0.0"
 __author__ = "Thoma Lafosse & Gordias (starbottroopers)"
 __license__ = "MIT"
 

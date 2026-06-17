@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="hermes-desktop-vision",
-    version="3.2.0",
+    version="1.0.0",
     author="Thoma Lafosse & Gordias (starbottroopers)",
     description="Give your AI agent eyes and hands on Windows — Desktop, Browser & System control",
     long_description=long_description,
