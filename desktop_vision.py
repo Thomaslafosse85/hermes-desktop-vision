@@ -251,6 +251,211 @@ class DesktopVision:
         """Press a keyboard shortcut (e.g., hotkey('ctrl', 'c'))."""
         pyautogui.hotkey(*keys)
 
+    # ── Advanced Interaction ─────────────────────────────────────────────
+
+    def wait_for(self, search: str, timeout: float = 30,
+                 interval: float = 1.0, min_confidence: float = 0.3) -> bool:
+        """
+        Wait for text to appear on screen (poll until found or timeout).
+
+        Useful for waiting on loading screens, dialogs, or async UI updates.
+
+        Args:
+            search: Text to wait for
+            timeout: Maximum seconds to wait
+            interval: Polling interval in seconds
+            min_confidence: Minimum OCR confidence
+
+        Returns:
+            True if text appeared, False if timeout
+        """
+        start = time.time()
+        while time.time() - start < timeout:
+            found = self.find_text(search, min_confidence=min_confidence)
+            if found:
+                return True
+            time.sleep(interval)
+        return False
+
+    def wait_and_click(self, search: str, timeout: float = 30,
+                       interval: float = 1.0, double: bool = False,
+                       min_confidence: float = 0.3) -> bool:
+        """
+        Wait for text to appear, then click it.
+
+        Combines wait_for + find_and_click in one call.
+
+        Args:
+            search: Text to wait for and click
+            timeout: Maximum seconds to wait
+            interval: Polling interval
+            double: Use double-click
+            min_confidence: Minimum OCR confidence
+
+        Returns:
+            True if text appeared and was clicked
+        """
+        if self.wait_for(search, timeout, interval, min_confidence):
+            return self.find_and_click(search, double=double,
+                                       min_confidence=min_confidence)
+        return False
+
+    def scroll_to(self, search: str, direction: str = "down",
+                  max_scrolls: int = 30, scroll_amount: int = -300,
+                  min_confidence: float = 0.3) -> bool:
+        """
+        Scroll until text becomes visible on screen.
+
+        Args:
+            search: Text to find
+            direction: 'up' or 'down' (scroll direction)
+            max_scrolls: Maximum number of scroll actions
+            scroll_amount: Pixels per scroll (negative = down, positive = up)
+            min_confidence: Minimum OCR confidence
+
+        Returns:
+            True if text was found
+        """
+        # Flip sign for 'up'
+        amount = scroll_amount if direction == "down" else -scroll_amount
+
+        for _ in range(max_scrolls):
+            # Check if already visible
+            if self.find_text(search, min_confidence=min_confidence):
+                return True
+            # Scroll and check
+            pyautogui.scroll(amount)
+            time.sleep(0.3)
+            if self.find_text(search, min_confidence=min_confidence):
+                return True
+
+        return False
+
+    def scroll_to_and_click(self, search: str, direction: str = "down",
+                            max_scrolls: int = 30, double: bool = False,
+                            min_confidence: float = 0.3) -> bool:
+        """
+        Scroll until text is visible, then click it.
+
+        Args:
+            search: Text to find and click
+            direction: 'up' or 'down'
+            max_scrolls: Maximum scroll actions
+            double: Use double-click
+            min_confidence: Minimum OCR confidence
+
+        Returns:
+            True if found and clicked
+        """
+        if self.scroll_to(search, direction, max_scrolls,
+                          min_confidence=min_confidence):
+            return self.find_and_click(search, double=double,
+                                       min_confidence=min_confidence)
+        return False
+
+    def drag(self, x1: int, y1: int, x2: int, y2: int, duration: float = 0.5):
+        """
+        Drag from (x1, y1) to (x2, y2).
+
+        Args:
+            x1, y1: Start position
+            x2, y2: End position
+            duration: Drag duration in seconds
+        """
+        pyautogui.moveTo(x1, y1, duration=0.2)
+        pyautogui.drag(x2 - x1, y2 - y1, duration=duration)
+
+    def drag_item(self, from_text: str, to_text: str,
+                  min_confidence: float = 0.3) -> bool:
+        """
+        Find two text elements and drag from one to the other.
+
+        Useful for drag-and-drop UI operations like moving files
+        between folders or reordering items.
+
+        Args:
+            from_text: Text of the item to drag
+            to_text: Text of the drop target
+            min_confidence: Minimum OCR confidence
+
+        Returns:
+            True if both elements were found and drag performed
+        """
+        source = self.find_text(from_text, min_confidence=min_confidence)
+        if source is None:
+            return False
+
+        target = self.find_text(to_text, min_confidence=min_confidence)
+        if target is None:
+            return False
+
+        # Icon offset (icon is above the text label)
+        self.drag(source.center_x, source.center_y - 45,
+                  target.center_x, target.center_y - 45)
+        return True
+
+    def move_to_monitor(self, monitor: int = 0):
+        """
+        Move mouse to the center of a specific monitor.
+
+        Args:
+            monitor: Monitor index (0 = primary, 1 = secondary, etc.)
+        """
+        import pyautogui
+        monitors = self.get_monitors()
+        if monitor < len(monitors):
+            m = monitors[monitor]
+            cx = m['left'] + m['width'] // 2
+            cy = m['top'] + m['height'] // 2
+            pyautogui.moveTo(cx, cy, duration=0.3)
+
+    @staticmethod
+    def get_monitors() -> List[dict]:
+        """
+        Get information about all connected monitors.
+
+        Returns:
+            List of dicts with 'left', 'top', 'width', 'height' for each monitor
+        """
+        try:
+            import screeninfo
+            monitors = screeninfo.get_monitors()
+            return [{'left': m.x, 'top': m.y, 'width': m.width, 'height': m.height,
+                     'name': m.name, 'primary': m.is_primary}
+                    for m in monitors]
+        except ImportError:
+            # Fallback: just the primary monitor
+            return [{'left': 0, 'top': 0,
+                     'width': pyautogui.size().width,
+                     'height': pyautogui.size().height,
+                     'name': 'Primary', 'primary': True}]
+
+    def screenshot_monitor(self, monitor: int = 0,
+                           path: str = None) -> Optional[str]:
+        """
+        Take a screenshot of a specific monitor.
+
+        Args:
+            monitor: Monitor index (0 = primary)
+            path: Save path
+
+        Returns:
+            Path to screenshot, or None if monitor not found
+        """
+        monitors = self.get_monitors()
+        if monitor >= len(monitors):
+            return None
+
+        m = monitors[monitor]
+        if path is None:
+            path = os.path.join(os.environ.get('TEMP', os.path.expanduser('~')),
+                               f'hermes_vision_monitor_{monitor}.png')
+
+        screenshot = pyautogui.screenshot(region=(m['left'], m['top'],
+                                                   m['width'], m['height']))
+        screenshot.save(path)
+        return path
+
     # ── Object Detection (YOLO) ──────────────────────────────────────────
 
     def _ensure_yolo(self):

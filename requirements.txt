@@ -9,3 +9,6 @@ numpy>=1.24.0
 ultralytics>=8.0.0
 opencv-python-headless>=4.8.0
 supervision>=0.20.0
+
+# Multi-monitor support (optional)
+screeninfo>=0.8.0
