@@ -146,12 +146,58 @@ vision.find_and_double_click("bonjour")
 
 | Other approaches | Why they fail |
 |-----------------|---------------|
-| YOLO alone | COCO has no "desktop icon" class |
+| YOLO alone (COCO) | No "desktop icon" class |
 | Pixel diff | Dark theme makes selection invisible |
 | Coordinate grid | Icons aren't alphabetically sorted |
 | Template matching | Icons change with Windows updates |
 
-**EasyOCR reads the text labels directly** — no training needed, works on any theme, any resolution.
+**Two complementary pipelines:**
+- **EasyOCR** reads text labels → finds icons, buttons, files by name
+- **YOLOv8** detects objects (80 COCO classes) → finds non-text UI elements, people, devices
+
+Together they cover everything: text-based and object-based UI elements.
+
+---
+
+## Object Detection with YOLOv8
+
+For non-text UI elements (icons without labels, buttons, images):
+
+```python
+vision = DesktopVision()
+
+# Detect everything on screen
+objects = vision.detect_objects()
+for obj in objects:
+    print(f"[{obj.confidence:.2f}] {obj.class_name} at ({obj.center_x}, {obj.center_y})")
+
+# Find and click a specific object
+vision.find_and_click_object("cell phone")     # Click on a phone icon
+vision.find_and_click_object("laptop")         # Click on a laptop icon
+vision.find_and_click_object("book")           # Click on a book/document
+
+# Use custom YOLO models
+vision.detect_objects(model="yolov8s.pt")                     # More accurate
+vision.detect_objects(model="path/to/custom_model.pt")        # Your fine-tuned model
+
+# Debug: see what YOLO sees
+vision.annotate_screenshot(output_path="debug.png")
+```
+
+**Available YOLO models:** `yolov8n.pt` (nano, fast), `yolov8s.pt` (small), `yolov8m.pt` (medium), `yolov8l.pt` (large), `yolov8x.pt` (extra large). First run downloads ~6-136MB.
+
+**80 COCO classes** include: person, laptop, cell phone, book, chair, bottle, mouse, keyboard, tv, clock, and more.
+
+### YOLO + EasyOCR = Complete Vision
+
+```python
+vision = DesktopVision()
+
+# Strategy 1: Try text first (most reliable)
+if not vision.find_and_click("Settings"):
+    # Strategy 2: Fall back to object detection
+    vision.find_and_click_object("tv")  # Maybe settings is a gear icon
+```
 
 ---
 
@@ -159,21 +205,29 @@ vision.find_and_double_click("bonjour")
 
 ### Hermes Agent
 ```bash
-pip install hermes-desktop-vision
+# Full install (EasyOCR + YOLO)
+pip install -r requirements.txt
 ```
 Then in your Hermes skill:
 ```python
 from desktop_vision import DesktopVision
 vision = DesktopVision()
+
+# Text-based
 vision.open_desktop_item("target_file")
+
+# Object-based
+vision.find_and_click_object("laptop")
+
+# Debug what the agent sees
+vision.annotate_screenshot("what_i_see.png")
 ```
 
 ### Claude / GPT / Any Agent
-Any agent that can run Python can use this:
-```python
-# Agent decides: "I need to click 'Submit'"
-from desktop_vision import DesktopVision
-DesktopVision().find_and_click("Submit")
+Any agent that can run Python can use this. For agents without GPU access,
+use the CPU-only install (skip YOLO for speed):
+```bash
+pip install easyocr pyautogui pillow pygetwindow numpy
 ```
 
 ---

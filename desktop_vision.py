@@ -1,9 +1,12 @@
 """
 Hermes Desktop Vision — Give your AI agent eyes on Windows.
 
-Pipeline: Screenshot → EasyOCR → pyautogui
+Pipelines:
+  1. Screenshot → EasyOCR → pyautogui  (text-based: icons, labels, buttons with text)
+  2. Screenshot → YOLOv8 → pyautogui   (object-based: icons without text, UI elements)
+
 Enables AI agents (Hermes, Claude, GPT, etc.) to see the desktop,
-read text on screen, and click on UI elements autonomously.
+read text on screen, detect objects, and click on UI elements autonomously.
 
 Author: Thoma Lafosse & Gordias (starbottroopers)
 Repo: https://github.com/Thomaslafosse85/hermes-desktop-vision
@@ -15,7 +18,28 @@ import easyocr
 import os
 import time
 from typing import Optional, Tuple, List
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+# YOLO (optional — install with: pip install ultralytics opencv-python supervision)
+try:
+    from ultralytics import YOLO
+    import supervision as sv
+    import numpy as np
+    HAS_YOLO = True
+except ImportError:
+    HAS_YOLO = False
+
+
+@dataclass
+class DetectedObject:
+    """Represents an object detected by YOLO on screen."""
+    class_name: str
+    confidence: float
+    center_x: int
+    center_y: int
+    width: int
+    height: int
+    bbox: Tuple[int, int, int, int]  # (x1, y1, x2, y2)
 
 
 @dataclass
@@ -226,6 +250,162 @@ class DesktopVision:
     def hotkey(self, *keys):
         """Press a keyboard shortcut (e.g., hotkey('ctrl', 'c'))."""
         pyautogui.hotkey(*keys)
+
+    # ── Object Detection (YOLO) ──────────────────────────────────────────
+
+    def _ensure_yolo(self):
+        """Check that YOLO dependencies are installed."""
+        if not HAS_YOLO:
+            raise ImportError(
+                "YOLO support requires: pip install ultralytics opencv-python supervision\n"
+                "These are optional — EasyOCR-based methods work without them."
+            )
+
+    def detect_objects(self, screenshot_path: str = None,
+                       model: str = "yolov8n.pt",
+                       classes: List[str] = None,
+                       min_confidence: float = 0.3) -> List[DetectedObject]:
+        """
+        Detect objects on screen using YOLOv8.
+
+        Args:
+            screenshot_path: Path to screenshot (takes new one if None)
+            model: YOLO model name or path (yolov8n.pt, yolov8s.pt, custom .pt)
+            classes: Filter by class names (None = all 80 COCO classes)
+            min_confidence: Minimum detection confidence
+
+        Returns:
+            List of DetectedObject with class_name, confidence, position, bbox
+        """
+        self._ensure_yolo()
+
+        if screenshot_path is None:
+            screenshot_path = self.screenshot()
+
+        yolo = YOLO(model)
+        results = yolo(screenshot_path, verbose=False)[0]
+
+        objects = []
+        if results.boxes is not None:
+            for box in results.boxes:
+                conf = float(box.conf[0])
+                if conf < min_confidence:
+                    continue
+
+                cls_id = int(box.cls[0])
+                cls_name = results.names[cls_id]
+
+                if classes and cls_name not in classes:
+                    continue
+
+                x1, y1, x2, y2 = box.xyxy[0].tolist()
+                cx = int((x1 + x2) / 2)
+                cy = int((y1 + y2) / 2)
+                w = int(x2 - x1)
+                h = int(y2 - y1)
+
+                objects.append(DetectedObject(
+                    class_name=cls_name,
+                    confidence=conf,
+                    center_x=cx,
+                    center_y=cy,
+                    width=w,
+                    height=h,
+                    bbox=(int(x1), int(y1), int(x2), int(y2))
+                ))
+
+        return objects
+
+    def find_object(self, class_name: str, screenshot_path: str = None,
+                    model: str = "yolov8n.pt",
+                    min_confidence: float = 0.3) -> Optional[DetectedObject]:
+        """
+        Find a specific object class on screen.
+
+        Args:
+            class_name: COCO class name (e.g., 'person', 'laptop', 'cell phone')
+            screenshot_path: Existing screenshot
+            model: YOLO model
+            min_confidence: Minimum detection confidence
+
+        Returns:
+            DetectedObject if found, None otherwise
+        """
+        objects = self.detect_objects(screenshot_path, model,
+                                      classes=[class_name],
+                                      min_confidence=min_confidence)
+        if objects:
+            # Return highest confidence match
+            return max(objects, key=lambda o: o.confidence)
+        return None
+
+    def find_and_click_object(self, class_name: str, double: bool = False,
+                              model: str = "yolov8n.pt",
+                              min_confidence: float = 0.3) -> bool:
+        """
+        Find an object by class name and click on it.
+
+        Useful for clicking on non-text UI elements like icons,
+        buttons without labels, or any COCO-detectable object.
+
+        Args:
+            class_name: COCO class (e.g., 'book', 'cell phone', 'laptop')
+            double: Use double-click
+            model: YOLO model
+            min_confidence: Minimum confidence
+
+        Returns:
+            True if found and clicked
+        """
+        obj = self.find_object(class_name, model=model,
+                               min_confidence=min_confidence)
+        if obj is None:
+            return False
+
+        self.click_position(obj.center_x, obj.center_y, double=double)
+        return True
+
+    def annotate_screenshot(self, screenshot_path: str = None,
+                            output_path: str = None,
+                            model: str = "yolov8n.pt",
+                            min_confidence: float = 0.3) -> str:
+        """
+        Take a screenshot and annotate detected objects with bounding boxes.
+
+        Useful for debugging: see what YOLO sees.
+
+        Args:
+            screenshot_path: Input screenshot
+            output_path: Where to save annotated image
+            model: YOLO model
+            min_confidence: Minimum confidence
+
+        Returns:
+            Path to the annotated image
+        """
+        self._ensure_yolo()
+
+        if screenshot_path is None:
+            screenshot_path = self.screenshot()
+
+        if output_path is None:
+            output_path = screenshot_path.replace('.png', '_annotated.png')
+
+        yolo = YOLO(model)
+        results = yolo(screenshot_path, verbose=False)[0]
+
+        if results.boxes is not None:
+            detections = sv.Detections.from_ultralytics(results)
+            image = np.array(results.orig_img)
+            annotator = sv.BoxAnnotator()
+            labeler = sv.LabelAnnotator()
+            annotated = annotator.annotate(image.copy(), detections)
+            annotated = labeler.annotate(annotated, detections)
+
+            import cv2
+            cv2.imwrite(output_path, cv2.cvtColor(annotated, cv2.COLOR_RGB2BGR))
+
+        return output_path
 
 
 # ── Demo ──────────────────────────────────────────────────────────────────────
