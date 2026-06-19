@@ -240,8 +240,47 @@ class DesktopVision:
         os.system(f'start {app_name}')
 
     def type_text(self, text: str, interval: float = 0.05):
-        """Type text at the current cursor position."""
+        """Type text at the current cursor position.
+
+        ⚠️ Note: For long texts, emojis, or Unicode characters, use
+        type_text_clipboard() instead — it's more reliable.
+        """
         pyautogui.write(text, interval=interval)
+
+    def type_text_clipboard(self, text: str):
+        """
+        Type text using clipboard paste instead of key-by-key emulation.
+
+        Much more reliable than type_text() for:
+        - Long texts (paragraphs, code snippets)
+        - Emojis and Unicode characters (🐭, 🛡️, ©, €)
+        - Text with quotes, backslashes, or special characters
+        - Multi-line text
+
+        Uses pyperclip (if installed via ``pip install hermes-desktop-vision[system]``)
+        or PowerShell Set-Clipboard via stdin pipe as fallback.
+
+        Args:
+            text: Text to type at the current cursor position
+        """
+        try:
+            import pyperclip
+            pyperclip.copy(text)
+        except ImportError:
+            import subprocess
+            # stdin pipe avoids all quoting/escaping issues with any text
+            proc = subprocess.Popen(
+                ["powershell", "-NoProfile", "-Command",
+                 "$input | Set-Clipboard"],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+            proc.communicate(input=text.encode("utf-8"), timeout=10)
+
+        time.sleep(0.1)
+        pyautogui.hotkey("ctrl", "v")
+        time.sleep(0.1)
 
     def press_key(self, key: str):
         """Press a keyboard key."""
