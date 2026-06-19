@@ -29,6 +29,13 @@ try:
 except ImportError:
     HAS_YOLO = False
 
+# OpenCV (optional — for template matching and image I/O)
+try:
+    import cv2
+    HAS_CV2 = True
+except ImportError:
+    HAS_CV2 = False
+
 
 @dataclass
 class DetectedObject:
@@ -568,6 +575,105 @@ class DesktopVision:
             return False
 
         self.click_position(obj.center_x, obj.center_y, double=double)
+        return True
+
+    # ── Image Template Matching ─────────────────────────────────────────
+
+    def _ensure_cv2(self):
+        """Check that OpenCV is available for template matching."""
+        if not HAS_CV2:
+            raise ImportError(
+                "Template matching requires: pip install opencv-python-headless\n"
+                "This is optional — OCR and YOLO methods work without it."
+            )
+
+    def find_template(self, template_path: str, screenshot_path: str = None,
+                      threshold: float = 0.8) -> Optional[Tuple[int, int, float]]:
+        """
+        Find a template image on screen using OpenCV template matching.
+
+        Useful for locating UI elements that don't have text labels —
+        toolbar icons, logo buttons, custom controls, or any fixed
+        image that appears on screen.
+
+        Args:
+            template_path: Path to the template image (PNG, small crop of the target)
+            screenshot_path: Path to screenshot (takes new one if None)
+            threshold: Match confidence threshold (0.0-1.0, default: 0.8)
+
+        Returns:
+            (center_x, center_y, confidence) if found, None otherwise
+        """
+        self._ensure_cv2()
+
+        if screenshot_path is None:
+            screenshot_path = self.screenshot()
+
+        # Read images
+        template = cv2.imread(template_path, cv2.IMREAD_GRAYSCALE)
+        if template is None:
+            raise FileNotFoundError(f"Template image not found: {template_path}")
+
+        screen = cv2.imread(screenshot_path, cv2.IMREAD_GRAYSCALE)
+        if screen is None:
+            screen = cv2.cvtColor(
+                cv2.imread(screenshot_path, cv2.IMREAD_COLOR),
+                cv2.COLOR_BGR2GRAY
+            )
+
+        # Edge-preserving resize if template is larger than screen
+        if template.shape[0] > screen.shape[0] or template.shape[1] > screen.shape[1]:
+            raise ValueError(
+                f"Template ({template.shape[1]}x{template.shape[0]}) is larger "
+                f"than screen ({screen.shape[1]}x{screen.shape[0]})"
+            )
+
+        # Try multiple matching methods, pick the best
+        methods = [
+            cv2.TM_CCOEFF_NORMED,
+            cv2.TM_CCORR_NORMED,
+        ]
+
+        best_val = -1.0
+        best_loc = None
+
+        for method in methods:
+            result = cv2.matchTemplate(screen, template, method)
+            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+
+            val = max_val if method in (cv2.TM_CCOEFF_NORMED, cv2.TM_CCORR_NORMED) else 1 - min_val
+            if val > best_val:
+                best_val = val
+                best_loc = max_loc if method in (cv2.TM_CCOEFF_NORMED, cv2.TM_CCORR_NORMED) else min_loc
+
+        if best_val < threshold:
+            return None
+
+        h, w = template.shape
+        cx = best_loc[0] + w // 2
+        cy = best_loc[1] + h // 2
+
+        return (cx, cy, best_val)
+
+    def find_and_click_template(self, template_path: str, threshold: float = 0.8,
+                                double: bool = False) -> bool:
+        """
+        Find a template image on screen and click its center.
+
+        Args:
+            template_path: Path to the template image (PNG crop of the target)
+            threshold: Match confidence threshold (0.0-1.0)
+            double: Use double-click instead of single click
+
+        Returns:
+            True if template was found and clicked
+        """
+        match = self.find_template(template_path, threshold=threshold)
+        if match is None:
+            return False
+
+        cx, cy, confidence = match
+        self.click_position(cx, cy, double=double)
         return True
 
     def annotate_screenshot(self, screenshot_path: str = None,
