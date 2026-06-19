@@ -25,6 +25,7 @@ try:
     from ultralytics import YOLO
     import supervision as sv
     import numpy as np
+    import cv2
     HAS_YOLO = True
 except ImportError:
     HAS_YOLO = False
@@ -204,6 +205,48 @@ class DesktopVision:
         return self.find_and_click(search, double=True, 
                                    icon_offset_y=icon_offset_y,
                                    min_confidence=min_confidence)
+
+    def find_and_type(self, search: str, text: str,
+                      press_enter: bool = True,
+                      min_confidence: float = 0.3) -> bool:
+        """
+        Find a text field on screen, click it, and type text into it.
+
+        This is the "fill a form field" workflow: find the label or placeholder
+        text, click on the field (no icon offset — clicks directly on the text
+        match), select all existing content, and type the new text.
+
+        Args:
+            search: Label or placeholder text to find
+            text: Text to type into the field
+            press_enter: Press Enter after typing (submit form)
+            min_confidence: Minimum OCR confidence
+
+        Returns:
+            True if field was found, clicked, and text was typed
+
+        Example:
+            vision.find_and_type("Search", "hermes-desktop-vision")
+            vision.find_and_type("Email", "user@example.com", press_enter=False)
+        """
+        found = self.find_text(search, min_confidence=min_confidence)
+        if found is None:
+            return False
+
+        # Click directly on the text match (offset=0 for form fields)
+        self.click_position(found.center_x, found.center_y, double=False)
+        time.sleep(0.2)
+
+        # Select all existing text (Ctrl+A) then overwrite
+        pyautogui.hotkey('ctrl', 'a')
+        time.sleep(0.1)
+        pyautogui.write(text, interval=0.02)
+
+        if press_enter:
+            time.sleep(0.1)
+            pyautogui.press('enter')
+
+        return True
 
     def list_desktop_icons(self) -> List[ScreenText]:
         """
