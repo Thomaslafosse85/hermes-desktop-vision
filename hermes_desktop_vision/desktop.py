@@ -49,7 +49,7 @@ class ScreenText:
     confidence: float
     center_x: int
     center_y: int
-    bbox: List
+    bbox: List[List[float]]  # EasyOCR format: [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
 
 
 class DesktopVision:
@@ -73,6 +73,7 @@ class DesktopVision:
         self.languages = languages or ['fr', 'en']
         self.reader = None
         self.gpu = gpu
+        self._yolo_models: dict = {}  # Cache: model_name -> YOLO instance
 
     def _ensure_reader(self):
         """Lazy-load the OCR reader (model download on first use)."""
@@ -236,8 +237,14 @@ class DesktopVision:
         os.system(f'explorer "{path}"')
 
     def open_app(self, app_name: str):
-        """Launch an application by name."""
-        os.system(f'start {app_name}')
+        """Launch an application by name (e.g., 'notepad', 'calc', 'chrome')."""
+        # os.startfile is the reliable Windows way — works in git-bash, cmd,
+        # PowerShell, and any shell where 'start' may not be available.
+        try:
+            os.startfile(app_name)
+        except FileNotFoundError:
+            # If not found as a file, try the start command as fallback
+            os.system(f'start {app_name}')
 
     def type_text(self, text: str, interval: float = 0.05):
         """Type text at the current cursor position."""
@@ -401,7 +408,6 @@ class DesktopVision:
         Args:
             monitor: Monitor index (0 = primary, 1 = secondary, etc.)
         """
-        import pyautogui
         monitors = self.get_monitors()
         if monitor < len(monitors):
             m = monitors[monitor]
@@ -466,6 +472,25 @@ class DesktopVision:
                 "These are optional — EasyOCR-based methods work without them."
             )
 
+    def _get_yolo_model(self, model: str = "yolov8n.pt"):
+        """
+        Get or create a cached YOLO model instance.
+
+        Models are cached by name to avoid reloading from disk on every call.
+        Loading a YOLO model takes 1-3 seconds — caching makes repeated calls
+        (e.g., wait_for loops) significantly faster.
+
+        Args:
+            model: YOLO model name or path (yolov8n.pt, custom .pt)
+
+        Returns:
+            YOLO model instance
+        """
+        self._ensure_yolo()
+        if model not in self._yolo_models:
+            self._yolo_models[model] = YOLO(model)
+        return self._yolo_models[model]
+
     def detect_objects(self, screenshot_path: str = None,
                        model: str = "yolov8n.pt",
                        classes: List[str] = None,
@@ -482,12 +507,10 @@ class DesktopVision:
         Returns:
             List of DetectedObject with class_name, confidence, position, bbox
         """
-        self._ensure_yolo()
-
         if screenshot_path is None:
             screenshot_path = self.screenshot()
 
-        yolo = YOLO(model)
+        yolo = self._get_yolo_model(model)
         results = yolo(screenshot_path, verbose=False)[0]
 
         objects = []
@@ -586,17 +609,16 @@ class DesktopVision:
             min_confidence: Minimum confidence
 
         Returns:
-            Path to the annotated image
+            Path to the annotated image (always a valid file, even if no
+            objects are detected — the clean screenshot is saved instead)
         """
-        self._ensure_yolo()
-
         if screenshot_path is None:
             screenshot_path = self.screenshot()
 
         if output_path is None:
             output_path = screenshot_path.replace('.png', '_annotated.png')
 
-        yolo = YOLO(model)
+        yolo = self._get_yolo_model(model)
         results = yolo(screenshot_path, verbose=False)[0]
 
         if results.boxes is not None:
@@ -609,6 +631,12 @@ class DesktopVision:
 
             import cv2
             cv2.imwrite(output_path, cv2.cvtColor(annotated, cv2.COLOR_RGB2BGR))
+        else:
+            # No objects detected — save the clean screenshot so the
+            # caller always gets a valid file back (not a ghost path).
+            import cv2
+            image = np.array(results.orig_img)
+            cv2.imwrite(output_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
 
         return output_path
 
