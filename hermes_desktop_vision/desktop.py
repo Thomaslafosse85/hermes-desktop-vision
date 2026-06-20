@@ -16,8 +16,10 @@ License: MIT
 import pyautogui
 import easyocr
 import os
+import re
+import subprocess
 import time
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Pattern
 from dataclasses import dataclass, field
 
 # YOLO (optional — install with: pip install ultralytics opencv-python supervision)
@@ -242,6 +244,25 @@ class DesktopVision:
     def type_text(self, text: str, interval: float = 0.05):
         """Type text at the current cursor position."""
         pyautogui.write(text, interval=interval)
+
+    def type_text_clipboard(self, text: str) -> None:
+        """
+        Type text with full Unicode/emoji support using clipboard paste.
+
+        Uses PowerShell Set-Clipboard via stdin pipe for reliable handling
+        of special characters (🐭, ©, é, emojis, etc.) that pyautogui.write()
+        cannot type reliably.
+
+        Args:
+            text: Text to type (supports any Unicode characters including emojis)
+        """
+        proc = subprocess.Popen(
+            ["powershell", "-NoProfile", "-Command", "$input | Set-Clipboard"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        proc.communicate(input=text.encode("utf-8"), timeout=10)
+        pyautogui.hotkey("ctrl", "v")
+        time.sleep(0.15)
 
     def press_key(self, key: str):
         """Press a keyboard key."""
