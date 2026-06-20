@@ -79,12 +79,16 @@ class DesktopVision:
         if self.reader is None:
             self.reader = easyocr.Reader(self.languages, gpu=self.gpu)
 
-    def screenshot(self, path: str = None) -> str:
+    def screenshot(self, path: str = None,
+                   region: Tuple[int, int, int, int] = None) -> str:
         """
-        Take a screenshot of the entire screen.
+        Take a screenshot of the entire screen or a specific region.
 
         Args:
             path: Save path (default: %TEMP%/hermes_vision_screenshot.png)
+            region: (left, top, width, height) — capture only this region.
+                    None = full screen. Useful to speed up OCR on a known
+                    area (e.g., a specific window or toolbar).
 
         Returns:
             Path to the saved screenshot
@@ -92,7 +96,7 @@ class DesktopVision:
         if path is None:
             path = os.path.join(os.environ.get('TEMP', os.path.expanduser('~')), 
                                'hermes_vision_screenshot.png')
-        pyautogui.screenshot(path)
+        pyautogui.screenshot(path, region=region)
         return path
 
     def show_desktop(self):
@@ -100,12 +104,16 @@ class DesktopVision:
         pyautogui.hotkey('win', 'd')
         time.sleep(0.5)
 
-    def scan_screen(self, screenshot_path: str = None) -> List[ScreenText]:
+    def scan_screen(self, screenshot_path: str = None,
+                    region: Tuple[int, int, int, int] = None) -> List[ScreenText]:
         """
-        Scan the screen and return all text found.
+        Scan the screen (or a region) and return all text found.
 
         Args:
             screenshot_path: Path to screenshot (takes new one if None)
+            region: (left, top, width, height) — scan only this region.
+                    None = full screen. Much faster on 4K screens when
+                    targeting a specific area.
 
         Returns:
             List of ScreenText objects with text, confidence, and position
@@ -113,7 +121,7 @@ class DesktopVision:
         self._ensure_reader()
 
         if screenshot_path is None:
-            screenshot_path = self.screenshot()
+            screenshot_path = self.screenshot(region=region)
 
         results = self.reader.readtext(screenshot_path)
 
@@ -134,7 +142,8 @@ class DesktopVision:
         return texts
 
     def find_text(self, search: str, screenshot_path: str = None,
-                  min_confidence: float = 0.3) -> Optional[ScreenText]:
+                  min_confidence: float = 0.3,
+                  region: Tuple[int, int, int, int] = None) -> Optional[ScreenText]:
         """
         Find text on screen matching a search string.
 
@@ -142,11 +151,13 @@ class DesktopVision:
             search: Text to search for (case-insensitive, partial match)
             screenshot_path: Existing screenshot (takes new one if None)
             min_confidence: Minimum OCR confidence to consider
+            region: (left, top, width, height) — search only this region.
+                    None = full screen.
 
         Returns:
             ScreenText if found, None otherwise
         """
-        texts = self.scan_screen(screenshot_path)
+        texts = self.scan_screen(screenshot_path, region=region)
 
         for st in texts:
             if search.lower() in st.text.lower() and st.confidence >= min_confidence:
@@ -155,9 +166,10 @@ class DesktopVision:
         return None
 
     def find_all_text(self, search: str, screenshot_path: str = None,
-                      min_confidence: float = 0.3) -> List[ScreenText]:
+                      min_confidence: float = 0.3,
+                      region: Tuple[int, int, int, int] = None) -> List[ScreenText]:
         """Find all occurrences of text on screen."""
-        texts = self.scan_screen(screenshot_path)
+        texts = self.scan_screen(screenshot_path, region=region)
         return [st for st in texts 
                 if search.lower() in st.text.lower() and st.confidence >= min_confidence]
 
@@ -171,7 +183,8 @@ class DesktopVision:
             pyautogui.click()
 
     def find_and_click(self, search: str, double: bool = False,
-                       icon_offset_y: int = -45, min_confidence: float = 0.3) -> bool:
+                       icon_offset_y: int = -45, min_confidence: float = 0.3,
+                       region: Tuple[int, int, int, int] = None) -> bool:
         """
         Find text on screen and click on its associated icon.
 
@@ -183,11 +196,14 @@ class DesktopVision:
             double: Use double-click instead of single click
             icon_offset_y: Vertical offset from text center to icon (negative = above)
             min_confidence: Minimum OCR confidence
+            region: (left, top, width, height) — search only this region.
+                    None = full screen.
 
         Returns:
             True if found and clicked, False otherwise
         """
-        found = self.find_text(search, min_confidence=min_confidence)
+        found = self.find_text(search, min_confidence=min_confidence,
+                               region=region)
 
         if found is None:
             return False
@@ -199,24 +215,31 @@ class DesktopVision:
         return True
 
     def find_and_double_click(self, search: str, icon_offset_y: int = -45,
-                              min_confidence: float = 0.3) -> bool:
+                              min_confidence: float = 0.3,
+                              region: Tuple[int, int, int, int] = None) -> bool:
         """Shorthand for find_and_click with double-click."""
         return self.find_and_click(search, double=True, 
                                    icon_offset_y=icon_offset_y,
-                                   min_confidence=min_confidence)
+                                   min_confidence=min_confidence,
+                                   region=region)
 
-    def list_desktop_icons(self) -> List[ScreenText]:
+    def list_desktop_icons(self, region: Tuple[int, int, int, int] = None) -> List[ScreenText]:
         """
         List all desktop icons by scanning after Win+D.
+
+        Args:
+            region: (left, top, width, height) — scan only this region.
+                    None = full desktop.
 
         Returns:
             List of ScreenText objects found on the desktop
         """
         self.show_desktop()
         path = self.screenshot()
-        return self.scan_screen(path)
+        return self.scan_screen(path, region=region)
 
-    def open_desktop_item(self, name: str) -> bool:
+    def open_desktop_item(self, name: str,
+                          region: Tuple[int, int, int, int] = None) -> bool:
         """
         Open an item on the desktop by name.
 
@@ -224,12 +247,14 @@ class DesktopVision:
 
         Args:
             name: Partial name of the desktop item
+            region: (left, top, width, height) — search only this region.
+                    None = full desktop.
 
         Returns:
             True if found and opened
         """
         self.show_desktop()
-        return self.find_and_double_click(name)
+        return self.find_and_double_click(name, region=region)
 
     def open_folder(self, path: str):
         """Open a folder in Windows Explorer."""
@@ -254,7 +279,8 @@ class DesktopVision:
     # ── Advanced Interaction ─────────────────────────────────────────────
 
     def wait_for(self, search: str, timeout: float = 30,
-                 interval: float = 1.0, min_confidence: float = 0.3) -> bool:
+                 interval: float = 1.0, min_confidence: float = 0.3,
+                 region: Tuple[int, int, int, int] = None) -> bool:
         """
         Wait for text to appear on screen (poll until found or timeout).
 
@@ -265,13 +291,16 @@ class DesktopVision:
             timeout: Maximum seconds to wait
             interval: Polling interval in seconds
             min_confidence: Minimum OCR confidence
+            region: (left, top, width, height) — watch only this region.
+                    None = full screen.
 
         Returns:
             True if text appeared, False if timeout
         """
         start = time.time()
         while time.time() - start < timeout:
-            found = self.find_text(search, min_confidence=min_confidence)
+            found = self.find_text(search, min_confidence=min_confidence,
+                                   region=region)
             if found:
                 return True
             time.sleep(interval)
@@ -279,7 +308,8 @@ class DesktopVision:
 
     def wait_and_click(self, search: str, timeout: float = 30,
                        interval: float = 1.0, double: bool = False,
-                       min_confidence: float = 0.3) -> bool:
+                       min_confidence: float = 0.3,
+                       region: Tuple[int, int, int, int] = None) -> bool:
         """
         Wait for text to appear, then click it.
 
@@ -291,18 +321,23 @@ class DesktopVision:
             interval: Polling interval
             double: Use double-click
             min_confidence: Minimum OCR confidence
+            region: (left, top, width, height) — watch and click only this
+                    region. None = full screen.
 
         Returns:
             True if text appeared and was clicked
         """
-        if self.wait_for(search, timeout, interval, min_confidence):
+        if self.wait_for(search, timeout, interval, min_confidence,
+                         region=region):
             return self.find_and_click(search, double=double,
-                                       min_confidence=min_confidence)
+                                       min_confidence=min_confidence,
+                                       region=region)
         return False
 
     def scroll_to(self, search: str, direction: str = "down",
                   max_scrolls: int = 30, scroll_amount: int = -300,
-                  min_confidence: float = 0.3) -> bool:
+                  min_confidence: float = 0.3,
+                  region: Tuple[int, int, int, int] = None) -> bool:
         """
         Scroll until text becomes visible on screen.
 
@@ -312,6 +347,8 @@ class DesktopVision:
             max_scrolls: Maximum number of scroll actions
             scroll_amount: Pixels per scroll (negative = down, positive = up)
             min_confidence: Minimum OCR confidence
+            region: (left, top, width, height) — search only this region.
+                    None = full screen.
 
         Returns:
             True if text was found
@@ -321,19 +358,22 @@ class DesktopVision:
 
         for _ in range(max_scrolls):
             # Check if already visible
-            if self.find_text(search, min_confidence=min_confidence):
+            if self.find_text(search, min_confidence=min_confidence,
+                              region=region):
                 return True
             # Scroll and check
             pyautogui.scroll(amount)
             time.sleep(0.3)
-            if self.find_text(search, min_confidence=min_confidence):
+            if self.find_text(search, min_confidence=min_confidence,
+                              region=region):
                 return True
 
         return False
 
     def scroll_to_and_click(self, search: str, direction: str = "down",
                             max_scrolls: int = 30, double: bool = False,
-                            min_confidence: float = 0.3) -> bool:
+                            min_confidence: float = 0.3,
+                            region: Tuple[int, int, int, int] = None) -> bool:
         """
         Scroll until text is visible, then click it.
 
@@ -343,14 +383,18 @@ class DesktopVision:
             max_scrolls: Maximum scroll actions
             double: Use double-click
             min_confidence: Minimum OCR confidence
+            region: (left, top, width, height) — search only this region.
+                    None = full screen.
 
         Returns:
             True if found and clicked
         """
         if self.scroll_to(search, direction, max_scrolls,
-                          min_confidence=min_confidence):
+                          min_confidence=min_confidence,
+                          region=region):
             return self.find_and_click(search, double=double,
-                                       min_confidence=min_confidence)
+                                       min_confidence=min_confidence,
+                                       region=region)
         return False
 
     def drag(self, x1: int, y1: int, x2: int, y2: int, duration: float = 0.5):
@@ -366,7 +410,8 @@ class DesktopVision:
         pyautogui.drag(x2 - x1, y2 - y1, duration=duration)
 
     def drag_item(self, from_text: str, to_text: str,
-                  min_confidence: float = 0.3) -> bool:
+                  min_confidence: float = 0.3,
+                  region: Tuple[int, int, int, int] = None) -> bool:
         """
         Find two text elements and drag from one to the other.
 
@@ -377,15 +422,19 @@ class DesktopVision:
             from_text: Text of the item to drag
             to_text: Text of the drop target
             min_confidence: Minimum OCR confidence
+            region: (left, top, width, height) — search only this region.
+                    None = full screen.
 
         Returns:
             True if both elements were found and drag performed
         """
-        source = self.find_text(from_text, min_confidence=min_confidence)
+        source = self.find_text(from_text, min_confidence=min_confidence,
+                                region=region)
         if source is None:
             return False
 
-        target = self.find_text(to_text, min_confidence=min_confidence)
+        target = self.find_text(to_text, min_confidence=min_confidence,
+                                region=region)
         if target is None:
             return False
 
