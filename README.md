@@ -1,4 +1,4 @@
-# 🐭👀 Hermes Desktop Vision v1.0
+# 🐭👀 Hermes Desktop Vision v1.1
 
 > **Full PC control for AI agents** — Desktop, Browser, System. Safe by default.
 
@@ -62,6 +62,8 @@ vision.find_and_click("Submit")          # Click any visible text
 vision.wait_and_click("Loading...")      # Wait for async UI
 vision.scroll_to_and_click("Settings")   # Scroll until found
 vision.drag_item("file.txt", "Folder")   # Drag and drop
+vision.find_text_by_regex(r'\d+[.,]\d{2}\s*€')     # Find a price
+vision.find_all_text_by_regex(r'[\w.+-]+@[\w-]+')  # Find all emails on screen
 ```
 
 ### Browser — Chrome automation
