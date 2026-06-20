@@ -300,6 +300,40 @@ class DesktopVision:
                                        min_confidence=min_confidence)
         return False
 
+    def wait_for_not_present(self, search: str, timeout: float = 30,
+                             interval: float = 1.0,
+                             min_confidence: float = 0.3) -> bool:
+        """
+        Wait for text to disappear from screen (poll until gone or timeout).
+
+        Useful for waiting on loading spinners, progress bars, dialogs
+        to close, or any transient UI element to finish its lifecycle.
+
+        Complement to wait_for(): whereas wait_for() waits for text to
+        APPEAR, wait_for_not_present() waits for text to DISAPPEAR.
+
+        Typical usage:
+            vision.find_and_click("Submit")
+            vision.wait_for_not_present("Loading...")  # wait for spinner to end
+            vision.find_and_click("Next")
+
+        Args:
+            search: Text to wait to disappear (case-insensitive)
+            timeout: Maximum seconds to wait
+            interval: Polling interval in seconds
+            min_confidence: Minimum OCR confidence
+
+        Returns:
+            True if text disappeared within timeout, False if still visible
+        """
+        start = time.time()
+        while time.time() - start < timeout:
+            found = self.find_text(search, min_confidence=min_confidence)
+            if found is None:
+                return True
+            time.sleep(interval)
+        return False
+
     def scroll_to(self, search: str, direction: str = "down",
                   max_scrolls: int = 30, scroll_amount: int = -300,
                   min_confidence: float = 0.3) -> bool:
@@ -401,7 +435,6 @@ class DesktopVision:
         Args:
             monitor: Monitor index (0 = primary, 1 = secondary, etc.)
         """
-        import pyautogui
         monitors = self.get_monitors()
         if monitor < len(monitors):
             m = monitors[monitor]
