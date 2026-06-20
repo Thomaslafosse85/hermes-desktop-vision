@@ -1,4 +1,4 @@
-# 🐭👀 Hermes Desktop Vision v1.0
+# 🐭👀 Hermes Desktop Vision v1.1
 
 > **Full PC control for AI agents** — Desktop, Browser, System. Safe by default.
 
