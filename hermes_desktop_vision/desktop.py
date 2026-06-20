@@ -16,6 +16,7 @@ License: MIT
 import pyautogui
 import easyocr
 import os
+import re
 import time
 from typing import Optional, Tuple, List
 from dataclasses import dataclass, field
@@ -160,6 +161,44 @@ class DesktopVision:
         texts = self.scan_screen(screenshot_path)
         return [st for st in texts 
                 if search.lower() in st.text.lower() and st.confidence >= min_confidence]
+
+    def find_text_by_regex(self, pattern: str, screenshot_path: str = None,
+                           min_confidence: float = 0.3,
+                           flags: int = re.IGNORECASE) -> Optional[ScreenText]:
+        """
+        Find text on screen matching a regular expression pattern.
+
+        Useful for finding dynamic content like prices, dates, emails,
+        version numbers, or any text that follows a pattern without
+        knowing the exact string in advance.
+
+        Args:
+            pattern: Regular expression pattern (e.g., r'\\d+\\.\\d+€' for prices,
+                     r'[\\w.+-]+@[\\w-]+\\.\\w+' for emails)
+            screenshot_path: Existing screenshot (takes new one if None)
+            min_confidence: Minimum OCR confidence to consider
+            flags: Regex flags (default: re.IGNORECASE)
+
+        Returns:
+            ScreenText if a match is found, None otherwise
+        """
+        texts = self.scan_screen(screenshot_path)
+        compiled = re.compile(pattern, flags)
+
+        for st in texts:
+            if compiled.search(st.text) and st.confidence >= min_confidence:
+                return st
+
+        return None
+
+    def find_all_text_by_regex(self, pattern: str, screenshot_path: str = None,
+                               min_confidence: float = 0.3,
+                               flags: int = re.IGNORECASE) -> List[ScreenText]:
+        """Find all occurrences of text matching a regex pattern on screen."""
+        texts = self.scan_screen(screenshot_path)
+        compiled = re.compile(pattern, flags)
+        return [st for st in texts
+                if compiled.search(st.text) and st.confidence >= min_confidence]
 
     def click_position(self, x: int, y: int, double: bool = False):
         """Click at a specific position."""
@@ -401,7 +440,6 @@ class DesktopVision:
         Args:
             monitor: Monitor index (0 = primary, 1 = secondary, etc.)
         """
-        import pyautogui
         monitors = self.get_monitors()
         if monitor < len(monitors):
             m = monitors[monitor]
