@@ -1,7 +1,7 @@
 ---
 name: hermes-desktop-vision
 description: "Full PC control for Hermes — Desktop (OCR+YOLO), Browser (Chrome CDP), System (Windows), Safety"
-version: 1.0.0
+version: 1.1.0
 platforms: [windows]
 python: ">=3.10"
 ---

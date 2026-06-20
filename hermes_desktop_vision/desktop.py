@@ -16,8 +16,9 @@ License: MIT
 import pyautogui
 import easyocr
 import os
+import re
 import time
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Pattern
 from dataclasses import dataclass, field
 
 # YOLO (optional — install with: pip install ultralytics opencv-python supervision)
@@ -160,6 +161,61 @@ class DesktopVision:
         texts = self.scan_screen(screenshot_path)
         return [st for st in texts 
                 if search.lower() in st.text.lower() and st.confidence >= min_confidence]
+
+    def find_text_by_regex(self, pattern: str, screenshot_path: str = None,
+                           min_confidence: float = 0.3,
+                           flags: int = re.IGNORECASE) -> Optional[ScreenText]:
+        """
+        Find text on screen matching a regex pattern.
+
+        Useful for finding dynamic content like prices, versions, emails,
+        phone numbers, or any text that follows a pattern you know
+            but not the exact value.
+
+        Args:
+            pattern: Regex pattern (e.g., r'\\d+[.,]\\d{2}\\s*€', r'v\\d+\\.\\d+\\.\\d+')
+            screenshot_path: Existing screenshot (takes new one if None)
+            min_confidence: Minimum OCR confidence
+            flags: Regex flags (default: re.IGNORECASE)
+
+        Returns:
+            ScreenText if found, None otherwise
+
+        Examples:
+            >>> vision.find_text_by_regex(r'\\d+[.,]\\d{2}\\s*€')  # Find a price
+            >>> vision.find_text_by_regex(r'v\\d+\\.\\d+\\.\\d+')  # Find a version
+            >>> vision.find_text_by_regex(r'[\\w.+-]+@[\\w-]+')    # Find an email
+        """
+        compiled = re.compile(pattern, flags)
+        texts = self.scan_screen(screenshot_path)
+        for st in texts:
+            if st.confidence >= min_confidence and compiled.search(st.text):
+                return st
+        return None
+
+    def find_all_text_by_regex(self, pattern: str, screenshot_path: str = None,
+                               min_confidence: float = 0.3,
+                               flags: int = re.IGNORECASE) -> List[ScreenText]:
+        """
+        Find ALL occurrences of text matching a regex pattern on screen.
+
+        Args:
+            pattern: Regex pattern
+            screenshot_path: Existing screenshot
+            min_confidence: Minimum OCR confidence
+            flags: Regex flags (default: re.IGNORECASE)
+
+        Returns:
+            List of ScreenText matching the pattern
+
+        Examples:
+            >>> emails = vision.find_all_text_by_regex(r'[\\w.+-]+@[\\w-]+\\.[\\w.]+')
+            >>> prices = vision.find_all_text_by_regex(r'\\d+[.,]\\d{2}\\s*€')
+        """
+        compiled = re.compile(pattern, flags)
+        texts = self.scan_screen(screenshot_path)
+        return [st for st in texts
+                if st.confidence >= min_confidence and compiled.search(st.text)]
 
     def click_position(self, x: int, y: int, double: bool = False):
         """Click at a specific position."""
@@ -401,7 +457,6 @@ class DesktopVision:
         Args:
             monitor: Monitor index (0 = primary, 1 = secondary, etc.)
         """
-        import pyautogui
         monitors = self.get_monitors()
         if monitor < len(monitors):
             m = monitors[monitor]
