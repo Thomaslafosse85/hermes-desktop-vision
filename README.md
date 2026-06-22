@@ -60,6 +60,7 @@ vision = DesktopVision()
 vision.open_desktop_item("Chrome")       # Win+D → find → double-click
 vision.find_and_click("Submit")          # Click any visible text
 vision.wait_and_click("Loading...")      # Wait for async UI
+vision.wait_until_stable()               # Wait for loading spinner to finish
 vision.scroll_to_and_click("Settings")   # Scroll until found
 vision.drag_item("file.txt", "Folder")   # Drag and drop
 ```
