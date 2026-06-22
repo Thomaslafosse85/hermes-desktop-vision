@@ -300,6 +300,63 @@ class DesktopVision:
                                        min_confidence=min_confidence)
         return False
 
+    def wait_until_stable(self, region: Optional[Tuple[int, int, int, int]] = None,
+                         timeout: float = 30, threshold: float = 1.0,
+                         interval: float = 0.5) -> float:
+        """
+        Wait until the screen (or a region) stops changing visually.
+
+        Takes screenshots at regular intervals and compares consecutive
+        frames using pixel-level difference. When the average change per
+        pixel falls below threshold, the screen is considered stable.
+
+        Useful for:
+        - Waiting for loading spinners or animations to complete
+        - Waiting for pages to finish rendering (no text target needed)
+        - Confirming a popup or dialog has fully appeared
+
+        Args:
+            region: (left, top, width, height) bounding box, or None
+                    for full screen
+            timeout: Maximum wait time in seconds (default 30)
+            threshold: Maximum average pixel difference (0-255) to
+                       consider stable (default 1.0)
+            interval: Seconds between screenshots (default 0.5)
+
+        Returns:
+            float: The final stability level (0.0 = identical frames).
+                   A value at or below threshold means stable.
+
+        Raises:
+            RuntimeError: If the screen hasn't stabilized within timeout.
+        """
+        import numpy as np
+
+        deadline = time.monotonic() + timeout
+        last_img = np.array(self.screenshot(region=region))
+        stability = float("inf")
+
+        while time.monotonic() < deadline:
+            time.sleep(interval)
+            current_img = np.array(self.screenshot(region=region))
+
+            # Handle different-size frames (window resize, multi-monitor)
+            h, w = (min(last_img.shape[0], current_img.shape[0]),
+                    min(last_img.shape[1], current_img.shape[1]))
+            diff = np.abs(last_img[:h, :w].astype(float) -
+                          current_img[:h, :w].astype(float))
+            stability = float(np.mean(diff))
+
+            if stability <= threshold:
+                return stability
+
+            last_img = current_img
+
+        raise RuntimeError(
+            f"Screen not stable after {timeout}s — "
+            f"final stability: {stability:.2f} (threshold: {threshold})"
+        )
+
     def scroll_to(self, search: str, direction: str = "down",
                   max_scrolls: int = 30, scroll_amount: int = -300,
                   min_confidence: float = 0.3) -> bool:
