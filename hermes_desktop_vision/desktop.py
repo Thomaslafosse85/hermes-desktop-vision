@@ -16,6 +16,7 @@ License: MIT
 import pyautogui
 import easyocr
 import os
+import subprocess
 import time
 from typing import Optional, Tuple, List
 from dataclasses import dataclass, field
@@ -233,11 +234,11 @@ class DesktopVision:
 
     def open_folder(self, path: str):
         """Open a folder in Windows Explorer."""
-        os.system(f'explorer "{path}"')
+        os.startfile(path)
 
     def open_app(self, app_name: str):
         """Launch an application by name."""
-        os.system(f'start {app_name}')
+        subprocess.Popen(['cmd', '/c', 'start', '', app_name])
 
     def type_text(self, text: str, interval: float = 0.05):
         """Type text at the current cursor position."""
@@ -599,16 +600,30 @@ class DesktopVision:
         yolo = YOLO(model)
         results = yolo(screenshot_path, verbose=False)[0]
 
+        import cv2
+
         if results.boxes is not None:
             detections = sv.Detections.from_ultralytics(results)
-            image = np.array(results.orig_img)
-            annotator = sv.BoxAnnotator()
-            labeler = sv.LabelAnnotator()
-            annotated = annotator.annotate(image.copy(), detections)
-            annotated = labeler.annotate(annotated, detections)
 
-            import cv2
-            cv2.imwrite(output_path, cv2.cvtColor(annotated, cv2.COLOR_RGB2BGR))
+            # Actually filter by min_confidence (was declared but never used)
+            confs = detections.confidence
+            if confs is not None:
+                confidence_mask = confs > min_confidence
+                detections = detections[confidence_mask]
+
+            if len(detections) > 0:
+                image = np.array(results.orig_img)
+                annotator = sv.BoxAnnotator()
+                labeler = sv.LabelAnnotator()
+                annotated = annotator.annotate(image.copy(), detections)
+                annotated = labeler.annotate(annotated, detections)
+                cv2.imwrite(output_path, cv2.cvtColor(annotated, cv2.COLOR_RGB2BGR))
+            else:
+                # No detections above confidence threshold — save original
+                cv2.imwrite(output_path, cv2.cvtColor(np.array(results.orig_img), cv2.COLOR_RGB2BGR))
+        else:
+            # No detections at all — save original so caller gets a valid file
+            cv2.imwrite(output_path, cv2.cvtColor(np.array(results.orig_img), cv2.COLOR_RGB2BGR))
 
         return output_path
 
