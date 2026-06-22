@@ -1,0 +1,13 @@
+LICENSE
+README.md
+setup.py
+hermes_desktop_vision/__init__.py
+hermes_desktop_vision/browser.py
+hermes_desktop_vision/desktop.py
+hermes_desktop_vision/safety.py
+hermes_desktop_vision/system.py
+hermes_desktop_vision.egg-info/PKG-INFO
+hermes_desktop_vision.egg-info/SOURCES.txt
+hermes_desktop_vision.egg-info/dependency_links.txt
+hermes_desktop_vision.egg-info/requires.txt
+hermes_desktop_vision.egg-info/top_level.txt

@@ -353,6 +353,33 @@ class DesktopVision:
                                        min_confidence=min_confidence)
         return False
 
+    def scroll(self, delta: int = 1) -> "DesktopVision":
+        """
+        Scroll the mouse wheel by *delta* clicks.
+
+        Positive values scroll **up**, negative values scroll **down**.
+        Unlike ``scroll_to()`` which uses PAGE_UP / PAGE_DOWN keys, this
+        method sends a native mouse-wheel event — ideal for fine-grained
+        scrolling inside web pages, dropdowns, chat logs, and any UI that
+        responds to wheel input.
+
+        Args:
+            delta: Number of wheel clicks.
+                   Positive = scroll up (toward the top of the document).
+                   Negative = scroll down (toward the bottom).
+                   Default 1 click up.
+
+        Returns:
+            self for method chaining.
+
+        Example:
+            >>> vision.scroll(3)       # scroll up 3 clicks
+            >>> vision.scroll(-10)     # scroll down 10 clicks
+            >>> vision.scroll(-3).scroll(2)  # chained
+        """
+        pyautogui.scroll(delta)
+        return self
+
     def drag(self, x1: int, y1: int, x2: int, y2: int, duration: float = 0.5):
         """
         Drag from (x1, y1) to (x2, y2).
