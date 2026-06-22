@@ -16,6 +16,7 @@ License: MIT
 import pyautogui
 import easyocr
 import os
+import subprocess
 import time
 from typing import Optional, Tuple, List
 from dataclasses import dataclass, field
@@ -233,11 +234,11 @@ class DesktopVision:
 
     def open_folder(self, path: str):
         """Open a folder in Windows Explorer."""
-        os.system(f'explorer "{path}"')
+        os.startfile(path)
 
     def open_app(self, app_name: str):
         """Launch an application by name."""
-        os.system(f'start {app_name}')
+        subprocess.Popen(['cmd', '/c', 'start', '', app_name])
 
     def type_text(self, text: str, interval: float = 0.05):
         """Type text at the current cursor position."""
