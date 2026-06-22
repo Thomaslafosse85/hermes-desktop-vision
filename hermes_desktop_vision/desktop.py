@@ -170,6 +170,19 @@ class DesktopVision:
         else:
             pyautogui.click()
 
+    def right_click_position(self, x: int, y: int):
+        """Right-click at a specific position.
+
+        Useful for opening context menus (copy, paste, open in new tab, etc.).
+
+        Args:
+            x: X coordinate
+            y: Y coordinate
+        """
+        pyautogui.moveTo(x, y, duration=0.3)
+        time.sleep(0.1)
+        pyautogui.rightClick()
+
     def find_and_click(self, search: str, double: bool = False,
                        icon_offset_y: int = -45, min_confidence: float = 0.3) -> bool:
         """
@@ -201,9 +214,32 @@ class DesktopVision:
     def find_and_double_click(self, search: str, icon_offset_y: int = -45,
                               min_confidence: float = 0.3) -> bool:
         """Shorthand for find_and_click with double-click."""
-        return self.find_and_click(search, double=True, 
+        return self.find_and_click(search, double=True,
                                    icon_offset_y=icon_offset_y,
                                    min_confidence=min_confidence)
+
+    def find_and_right_click(self, search: str, icon_offset_y: int = -45,
+                             min_confidence: float = 0.3) -> bool:
+        """Find text on screen and right-click on its associated icon.
+
+        Useful for opening context menus (Copy, Paste, Open in new tab, etc.).
+
+        Args:
+            search: Text to find (case-insensitive, partial match)
+            icon_offset_y: Vertical offset from text center to the icon above it.
+                           Default -45 works for Windows desktop icons.
+            min_confidence: Minimum OCR confidence (0.0 to 1.0)
+
+        Returns:
+            True if found and right-clicked
+        """
+        found = self.find_text(search, min_confidence=min_confidence)
+        if found is None:
+            return False
+
+        click_y = found.center_y + icon_offset_y
+        self.right_click_position(found.center_x, click_y)
+        return True
 
     def list_desktop_icons(self) -> List[ScreenText]:
         """
