@@ -205,6 +205,46 @@ class DesktopVision:
                                    icon_offset_y=icon_offset_y,
                                    min_confidence=min_confidence)
 
+    def find_and_type(self, search: str, text: str,
+                      icon_offset_y: int = 0,
+                      min_confidence: float = 0.3,
+                      press_enter: bool = False) -> bool:
+        """
+        Find a text label on screen, click its input field, and type text.
+
+        Full workflow: screenshot → OCR → find label → click field →
+        Ctrl+A (select all) → type replacement text → optionally press Enter.
+
+        This is the standard form-filling pattern. Use icon_offset_y=0
+        for inline fields (labels next to inputs) and -45 for desktop icons.
+
+        Args:
+            search: Text label near the input field (e.g., "Search", "Email")
+            text: Text to type into the field
+            icon_offset_y: Vertical offset from label to input (0 = same level)
+            min_confidence: Minimum OCR confidence for label detection
+            press_enter: Press Enter after typing (to submit/search)
+
+        Returns:
+            True if the label was found and text was typed
+        """
+        if not self.find_and_click(search, icon_offset_y=icon_offset_y,
+                                    min_confidence=min_confidence):
+            return False
+
+        time.sleep(0.2)
+
+        # Select any existing text and replace
+        self.hotkey("ctrl", "a")
+        time.sleep(0.1)
+        self.type_text(text)
+
+        if press_enter:
+            time.sleep(0.1)
+            self.press_key("enter")
+
+        return True
+
     def list_desktop_icons(self) -> List[ScreenText]:
         """
         List all desktop icons by scanning after Win+D.
